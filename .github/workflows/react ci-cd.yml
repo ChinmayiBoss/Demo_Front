@@ -32,14 +32,8 @@ jobs:
           key: ${{ secrets.EC2_KEY }}
           port: 22
           source: "build/*"
-          target: "/var/www/app.seaswap.co"
-
-      - name: Restart Nginx
-        uses: appleboy/ssh-action@v0.1.5
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_KEY }}
-          port: 22
+          target: "/var/www/demo/"
           script: |
+            sudo mv /home/ubuntu/temp_build/* /var/www/app.seaswap.co/
+            sudo chown -R www-data:www-data /var/www/app.seaswap.co
             sudo systemctl restart nginx
