@@ -36,13 +36,12 @@ jobs:
 
       - name: Connect to VPN
         run: |
-          sudo openvpn --config vpn-office1.ovpn \
-            --auth-user-pass <(printf "%s\n%s\n" "${{ secrets.VPN_USER }}" "${{ secrets.VPN_PASSWORD }}") \
-            --daemon
-          echo "Waiting for VPN connection..."
+          echo -e "${{ secrets.VPN_USER }}\n${{ secrets.VPN_PASSWORD }}" > vpn-auth.txt   
+          chmod 600 vpn-auth.txt
+          sudo openvpn --config vpn-office1.ovpn --auth-user-pass vpn-auth.txt &
           sleep 10
-          ip addr show tun0 || true   # show VPN tunnel if available
-          ping -c 3 ${{ secrets.EC2_PRIVATE_IP }} || true
+          ip addr show tun0 || true
+
       # ---------- Deploy Build ----------
      
       - name: Deploy to EC2
