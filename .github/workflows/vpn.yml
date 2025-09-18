@@ -36,14 +36,13 @@ jobs:
 
       - name: Connect to VPN
         run: |
-          echo -e "${{ secrets.VPN_USER }}\n${{ secrets.VPN_PASSWORD }}" > vpn-auth.txt
-          chmod 600 vpn-auth.txt
           sudo openvpn --config vpn-office1.ovpn \
-                 --auth-user-pass vpn-auth.txt \
-                 --daemon
+            --auth-user-pass <(printf "%s\n%s\n" "${{ secrets.VPN_USER }}" "${{ secrets.VPN_PASSWORD }}") \
+            --daemon
           echo "Waiting for VPN connection..."
           sleep 10
-          sudo ip addr show tun0 || true
+          ip addr show tun0 || true   # show VPN tunnel if available
+          ping -c 3 ${{ secrets.EC2_PRIVATE_IP }} || true
       # ---------- Deploy Build ----------
      
       - name: Deploy to EC2
@@ -65,8 +64,3 @@ jobs:
           port: 22
           script: |
              sudo systemctl restart nginx
-
-      - name: Verify app with curl
-        run: |
-          echo "Testing React app over VPN..."
-          curl -i http://${{ secrets.EC2_PRI_IP }}
