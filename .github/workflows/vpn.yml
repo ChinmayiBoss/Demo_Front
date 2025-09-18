@@ -1,0 +1,67 @@
+name: Deploy React App to EC2 (with VPN)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build React app
+        run: npm run build
+
+      # ---------- VPN Setup (if EC2 is private) ----------
+      - name: Install OpenVPN
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openvpn
+
+      - name: Setup VPN Config
+        run: |
+          echo "${{ secrets.vpn_config }}" | base64 -d > vpn-office1.ovpn
+
+      - name: Connect to VPN
+        run: |
+          sudo openvpn --config vpn-office1.ovpn \
+            --auth-user-pass <(printf "%s\n%s\n" "${{ secrets.VPN_USER }}" "${{ secrets.VPN_PASSWORD }}") \
+            --daemon
+          echo "Waiting for VPN connection..."
+          sleep 10
+          ip addr show tun0 || true   # show VPN tunnel if available
+          ping -c 3 ${{ secrets.EC2_PRI_IP }} || true
+
+      # ---------- Deploy Build ----------
+     
+      - name: Deploy to EC2
+        uses: appleboy/scp-action@v0.1.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          port: 22
+          source: "build/*"
+          target: "/var/www/demo/"
+
+      - name: Restart nginx
+        uses: appleboy/ssh-action@v0.1.6
+        with: 
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          port: 22
+          script: |
+             sudo systemctl restart nginx
