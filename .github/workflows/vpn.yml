@@ -1,4 +1,5 @@
-name: Deploy React App to EC2 (with VPN)
+name: Deploy React App to EC2 via VPN
+
 on:
   push:
     branches:
@@ -9,53 +10,46 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout code
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      # 2. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20
-          
-      - name: Install dependencies
-        run: npm install
 
-      - name: Build React app
-        run: npm run build
-
-      # ---------- VPN Setup (if EC2 is private) ----------
-      - name: Install OpenVPN
+      # 3. Install dependencies & build React app
+      - name: Install dependencies & Build
         run: |
-          sudo apt-get update
-          sudo apt-get install -y openvpn
+          npm install
+          npm run build
 
+      # 4. Install OpenVPN
+      - name: Install OpenVPN
+        run: sudo apt-get update && sudo apt-get install -y openvpn
+
+      # 5. Setup VPN config
       - name: Setup VPN Config
         run: |
-          echo "${{ secrets.vpn_config }}" | base64 -d > vpn-office1.ovpn
+          echo "${{ secrets.VPN_CONFIG }}" | base64 -d > vpn-office1.ovpn
+          chmod 600 vpn-office1.ovpn
 
+      # 6. Create VPN auth file
+      - name: VPN Authentication
+        run: |
+          echo -e "${{ secrets.VPN_USER }}\n${{ secrets.VPN_PASSWORD }}" > vpn-auth.txt
+          chmod 600 vpn-auth.txt
+
+      # 7. Connect to VPN
       - name: Connect to VPN
         run: |
-          echo -e "${{ secrets.VPN_USER }}\n${{ secrets.VPN_PASSWORD }}" > vpn-auth.txt   
-          chmod 600 vpn-auth.txt
-          sudo openvpn --config vpn-office1.ovpn --auth-user-pass vpn-auth.txt &
-          sleep 10
-          ip addr show tun0 || true
+          sudo openvpn --config vpn-office1.ovpn --auth-user-pass vpn-auth.txt --daemon
+          sleep 15
+          sudo ip addr show tun0 || true
 
-      # ---------- Test React App over VPN ----------
-      - name: Test React App over VPN
-        run: |
-          echo "Testing React app connectivity..."
-          for i in {1..10}; do
-          if curl -s --connect-timeout 5 http://${{ secrets.EC2_PRI_IP }}:80 >/dev/null; then
-          echo " React app is reachable over VPN!"
-          break
-          else
-          echo " Cannot reach React app yet, retrying..."
-          sleep 3
-          fi
-          done
-
-      # ---------- Deploy Build ----------
+      # 8. Deploy build to EC2
       - name: Deploy to EC2
         uses: appleboy/scp-action@v0.1.5
         with:
@@ -66,6 +60,7 @@ jobs:
           source: "build/*"
           target: "/var/www/demo/"
 
+      # 9. Restart nginx on EC2
       - name: Restart nginx
         uses: appleboy/ssh-action@v0.1.6
         with: 
@@ -73,5 +68,9 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_KEY }}
           port: 22
-          script: |
-             sudo systemctl restart nginx
+          script: sudo systemctl restart nginx
+
+      # 10. Disconnect VPN
+      - name: Disconnect VPN
+        if: always()
+        run: sudo pkill openvpn
