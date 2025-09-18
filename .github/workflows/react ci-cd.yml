@@ -29,15 +29,8 @@ jobs:
           key: ${{ secrets.EC2_KEY }}
           source: "build/**"
           target: "/var/www/demo/"
-      - name: Configure Nginx & HTTPS
-        uses: appleboy/ssh-action@master
-        with:
-           host: ${{ secrets.EC2_HOST }}
-           username: ${{ secrets.EC2_USER }}
-           key: ${{ secrets.EC2_KEY }}
-           script: |
+          script: |
              sudo apt update
-             sudo apt install -y nginx certbot python3-certbot-nginx
              sudo systemctl restart nginx
 
 
