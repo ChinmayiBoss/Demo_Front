@@ -46,13 +46,13 @@ jobs:
         run: |
           echo "Testing React app connectivity..."
           for i in {1..10}; do
-            if curl -s --connect-timeout 5 http://<EC2_PRI_IP>:80 >/dev/null; then
-              echo " React app is reachable over VPN!"
-              break
-            else
-              echo " Cannot reach React app yet, retrying..."
-              sleep 3
-            fi
+          if curl -s --connect-timeout 5 http://${{ secrets.EC2_PRI_IP }}:80 >/dev/null; then
+          echo " React app is reachable over VPN!"
+          break
+          else
+          echo " Cannot reach React app yet, retrying..."
+          sleep 3
+          fi
           done
 
       # ---------- Deploy Build ----------
