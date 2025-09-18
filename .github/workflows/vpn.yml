@@ -42,8 +42,21 @@ jobs:
           sleep 10
           ip addr show tun0 || true
 
+      # ---------- Test React App over VPN ----------
+      - name: Test React App over VPN
+        run: |
+          echo "Testing React app connectivity..."
+          for i in {1..10}; do
+            if curl -s --connect-timeout 5 http://<EC2_PRI_IP>:80 >/dev/null; then
+              echo " React app is reachable over VPN!"
+              break
+            else
+              echo " Cannot reach React app yet, retrying..."
+              sleep 3
+            fi
+          done
+
       # ---------- Deploy Build ----------
-     
       - name: Deploy to EC2
         uses: appleboy/scp-action@v0.1.5
         with:
