@@ -33,7 +33,14 @@ jobs:
           port: 22
           source: "build/*"
           target: "/var/www/demo/"
+
+      - name: Move build to /var/www/demo
+        uses: appleboy/ssh-action@v0.1.5
+        with:
           script: |
-            sudo mv /home/ubuntu/temp_build/* /var/www/app.seaswap.co/
-            sudo chown -R www-data:www-data /var/www/app.seaswap.co
-            sudo systemctl restart nginx
+            sudo mkdir -p /var/www/demo
+            sudo mv /home/${{ secrets.EC2_USER }}/build/* /var/www/demo/
+            sudo chown -R www-data:www-data /var/www/demo
+            sudo chown -R ubuntu:ubuntu /var/www/demo
+            sudo chmod -R 775 /var/www/demo
+            sudo systemctl restart nginx   
