@@ -65,3 +65,8 @@ jobs:
           port: 22
           script: |
              sudo systemctl restart nginx
+
+      - name: Verify app with curl
+        run: |
+          echo "Testing React app over VPN..."
+          curl -i http://${{ secrets.EC2_PRI_IP }}
