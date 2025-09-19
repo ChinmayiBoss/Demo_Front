@@ -4,51 +4,41 @@ on:
   push:
     branches:
       - main
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout code
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20
 
-      # 3. Install dependencies & build React app
       - name: Install dependencies & Build
         run: |
           npm install
           npm run build
-
-      # 4. Install OpenVPN
-      - name: Install OpenVPN
-        run: sudo apt-get update && sudo apt-get install -y openvpn
-
-      # 5. Setup VPN config
-      - name: Setup VPN Config
-        run: |
+          sudo apt-get update && sudo apt-get install -y openvpn
           echo "${{ secrets.VPN_CONFIG }}" | base64 -d > vpn-office1.ovpn
           chmod 600 vpn-office1.ovpn
-
-      # 6. Create VPN auth file
-      - name: VPN Authentication
-        run: |
           echo -e "${{ secrets.VPN_USER }}\n${{ secrets.VPN_PASSWORD }}" > vpn-auth.txt
           chmod 600 vpn-auth.txt
-
-      # 7. Connect to VPN
-      - name: Connect to VPN
-        run: |
           sudo openvpn --config vpn-office1.ovpn --auth-user-pass vpn-auth.txt --daemon
           sleep 15
-          sudo ip addr show tun0 || true
-
+          echo "Checking tun0 interface..."
+          if ip addr show tun0 > /dev/null 2>&1; then
+           echo "VPN connected: tun0 interface is up"
+           ip addr show tun0
+          else
+           echo "VPN connection failed"
+          exit 1
+          fi
+          echo "Testing connectivity..."
+          curl -s https://ifconfig.me || true
+   
       # 8. Deploy build to EC2
       - name: Deploy to EC2
         uses: appleboy/scp-action@v0.1.5
@@ -70,7 +60,3 @@ jobs:
           port: 22
           script: sudo systemctl restart nginx
 
-      # 10. Disconnect VPN
-      - name: Disconnect VPN
-        if: always()
-        run: sudo pkill openvpn
